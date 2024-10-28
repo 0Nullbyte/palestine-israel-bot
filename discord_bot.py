@@ -1,15 +1,12 @@
-
 import discord
 from discord.ext import commands
 from bs4 import BeautifulSoup
 import requests
 
-#Made By Ayhxm
-
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-async def scrape_liveuamap():
+async def liveaumap():
     url = "https://israelpalestine.liveuamap.com/"
     response = requests.get(url)
 
@@ -18,88 +15,77 @@ async def scrape_liveuamap():
         scroll_container = soup.find('div', id='feedler')
         events = scroll_container.find_all('div', class_='event')
 
-        news_list = []
+        news_items = []
         for event in events:
             title = event.find('div', class_='title').text.strip()
             link = event.find('a', class_='comment-link')['href']
-            news_list.append({'title': title, 'link': link})
+            news_items.append({'title': title, 'link': link})
 
-        return news_list[:5]  
-    else:
-        return None
+        return news_items[:5]  
+    return None
 
-async def scrape_alternative_news():
+async def fetchnews():
+    url_aljazeera = "https://www.aljazeera.com/news/"
+    url_youtube = "https://www.youtube.com/@aljazeera/streams"
 
-    alternative_news_source_aljazeera = "https://www.aljazeera.com/news/"
-    response_aljazeera = requests.get(alternative_news_source_aljazeera)
-    
+    response_aljazeera = requests.get(url_aljazeera)
+    response_youtube = requests.get(url_youtube)
 
-    alternative_news_source_youtube = "https://www.youtube.com/@aljazeera/streams"
-    response_youtube = requests.get(alternative_news_source_youtube)
-
-    alternative_news_list = []
+    ITEMS = []
 
     if response_aljazeera.status_code == 200:
-        soup_aljazeera = BeautifulSoup(response_aljazeera.text, 'html.parser')
-        articles_aljazeera = soup_aljazeera.find_all('a', class_='topic-title')
+        soup = BeautifulSoup(response_aljazeera.text, 'html.parser')
+        articles = soup.find_all('a', class_='topic-title')
 
-        for article in articles_aljazeera:
+        for article in articles:
             title = article.text.strip()
             link = article['href']
-            alternative_news_list.append({'title': f"[{title}]({link})", 'link': link})
-
+            ITEMS.append({'title': f"[{title}]({link})", 'link': link})
 
     if response_youtube.status_code == 200:
-        soup_youtube = BeautifulSoup(response_youtube.text, 'html.parser')
-        streams_youtube = soup_youtube.find_all('a', class_='style-scope ytd-grid-video-renderer')
+        soup = BeautifulSoup(response_youtube.text, 'html.parser')
+        streams = soup.find_all('a', class_='style-scope ytd-grid-video-renderer')
 
-        for stream in streams_youtube:
+        for stream in streams:
             title = stream.find('div', class_='style-scope ytd-grid-video-renderer').text.strip()
             link = "https://www.youtube.com" + stream['href']
-            alternative_news_list.append({'title': f"[{title}]({link})", 'link': link})
+            alternative_items.append({'title': f"[{title}]({link})", 'link': link})
 
-    return alternative_news_list[:5] 
+    return ITEMS[:5] 
 
 @bot.event
 async def on_ready():
-    print(f'We have logged in as {bot.user}')
+    print(f'{bot.user} has connected successfully.')
 
 @bot.command(name='news')
 async def news(ctx):
-    liveuamap_news = await scrape_liveuamap()
-    alternative_news = await scrape_alternative_news()
+    liveaumap = await liveaumap()
+    fetchnews = await fetchnews()
 
     if liveuamap_news:
         embed = discord.Embed(
-            title="📰Latest News📰",
-            color=0x7289da  
+            title="📰 Latest News 📰",
+            color=0x7289da
         )
 
-        for i, article in enumerate(liveuamap_news):
-            embed.add_field(name=f"News {i+1}", value=f"[{article['title']}]({article['link']})", inline=False)
+        for i, item in enumerate(liveuamap_news):
+            embed.add_field(name=f"News {i+1}", value=f"[{item['title']}]({item['link']})", inline=False)
 
+        footer = ""
+        for i, item in enumerate(alternative_news):
+            stream_text += f"{i+1}. {item['title']}\n{item['link']}\n"
 
-        streams_text = ""
-        for i, article in enumerate(alternative_news):
-            streams_text += f"{i+1}. {article['title']}\n{article['link']}\n"
+        footer += f"🔥 Al Jazeera Stream 🔥 (https://www.youtube.com/watch?v=bNyUyrR0PHo)  [Watch here]\n"
+        footer += f"🔥 Al Jazeera News 🔥 (https://www.aljazeera.com/news/)  [Read here]\n"
+        footer += "Crafted by Ayham 💗\n\n"
 
-
-        streams_text += f"🔥Al Jazeera Stream🔥 (https://www.youtube.com/watch?v=bNyUyrR0PHo)  [Watch here]\n"
-        streams_text += f"🔥Al Jazeera News🔥 (https://www.aljazeera.com/news/)  [Read here]\n"
-        streams_text += f"Made By Ayham💗\n\n"
-
-
-        embed.set_footer(text=f"Streams:\n{streams_text}")
-
-
-        image_url = "https://israelpalestine.liveuamap.com/images/shr/002.png"  
-        embed.set_image(url=image_url)
+        embed.set_footer(text=f"Streams:\n{stream_text}")
+        embed.set_image(url="https://israelpalestine.liveuamap.com/images/shr/002.png")
 
         await ctx.send(embed=embed)
-        print("Sent news, streams, and image.")
+        print("News and streams sent successfully.")
     else:
-        await ctx.send("Error fetching news from liveuamap. Please try again later.")
-        print("Failed to fetch news")
-
+        await ctx.send("Unable to retrieve news from liveuamap. Please try again later.")
+        print("News retrieval failed.")
 
 bot.run('YOUR_BOT_TOKEN')
